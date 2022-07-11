@@ -11,6 +11,7 @@ from pydantic import Field
 
 from ampel.abstract.AbsAlertLoader import AbsAlertLoader
 from ampel.ztf.t0.load.AllConsumingConsumer import AllConsumingConsumer
+import confluent_kafka
 
 log = logging.getLogger(__name__)
 
@@ -514,6 +515,27 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
         )
         self._it = None
 
+    @staticmethod
+    def _add_message_metadata(alert: dict, message: confluent_kafka.Message):
+        meta = {}
+        timestamp_kind, timestamp = message.timestamp()
+        meta["timestamp"] = {
+            (
+                "create"
+                if timestamp_kind == confluent_kafka.TIMESTAMP_CREATE_TIME
+                else "append"
+                if timestamp_kind == confluent_kafka.TIMESTAMP_LOG_APPEND_TIME
+                else "unavailable"
+            ): timestamp
+        }
+        meta["topic"] = message.topic()
+        meta["partition"] = message.partition()
+        meta["offset"] = message.offset()
+        meta["key"] = message.key()
+
+        alert["__kafka"] = meta
+        return alert
+
     def alerts(self, limit: Optional[int] = None) -> Iterator[dict]:
         """
         Generate alerts until timeout is reached
@@ -528,9 +550,10 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
                 io.BytesIO(message.value()), schema
             )
             if isinstance(alert, list):
-                yield from alert
+                for d in alert:
+                    yield self._add_message_metadata(d, message)
             else:
-                yield alert
+                yield self._add_message_metadata(alert, message)
 
     def __next__(self) -> dict:
         if self._it is None:
