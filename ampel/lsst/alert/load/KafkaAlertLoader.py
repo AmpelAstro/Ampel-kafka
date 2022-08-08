@@ -4,7 +4,7 @@ import io
 import itertools
 import logging
 import uuid
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Any
 
 import fastavro
 from pydantic import Field
@@ -504,11 +504,13 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
     group_name: str = str(uuid.uuid1())
     #: time to wait for messages before giving up, in seconds
     timeout: int = 1
+    #: extra configuration to pass to confluent_kafka.Consumer
+    kafka_consumer_properties: dict[str,Any] = {}
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        config = {"group.id": self.group_name}
+        config = {"group.id": self.group_name} | self.kafka_consumer_properties
 
         self._consumer = AllConsumingConsumer(
             self.bootstrap, timeout=self.timeout, topics=self.topics, **config
