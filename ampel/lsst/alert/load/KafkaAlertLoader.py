@@ -505,7 +505,7 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
     #: time to wait for messages before giving up, in seconds
     timeout: int = 1
     #: extra configuration to pass to confluent_kafka.Consumer
-    kafka_consumer_properties: dict[str,Any] = {}
+    kafka_consumer_properties: dict[str, Any] = {}
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -513,7 +513,12 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
         config = {"group.id": self.group_name} | self.kafka_consumer_properties
 
         self._consumer = AllConsumingConsumer(
-            self.bootstrap, timeout=self.timeout, topics=self.topics, **config
+            self.bootstrap,
+            timeout=self.timeout,
+            topics=self.topics,
+            auto_commit=True,
+            logger=self.logger,
+            **config,
         )
         self._it = None
 
