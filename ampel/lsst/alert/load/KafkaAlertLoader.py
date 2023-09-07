@@ -4,7 +4,7 @@ import io
 import itertools
 import logging
 import uuid
-from typing import Iterator, Optional, Any
+from typing import Iterable, Iterator, Optional, Any
 
 import fastavro
 from pydantic import Field
@@ -16,6 +16,7 @@ import confluent_kafka
 from .HttpSchemaRepository import parse_schema, DEFAULT_SCHEMA
 
 log = logging.getLogger(__name__)
+
 
 class KafkaAlertLoader(AbsAlertLoader[dict]):
     """
@@ -38,13 +39,12 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        config = {"group.id": self.group_name} | self.kafka_consumer_properties
+        config = {"group.id": self.group_name, "auto_commit": False} | self.kafka_consumer_properties
 
         self._consumer = AllConsumingConsumer(
             self.bootstrap,
             timeout=self.timeout,
             topics=self.topics,
-            auto_commit=True,
             logger=self.logger,
             **config,
         )
@@ -70,6 +70,22 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
 
         alert["__kafka"] = meta
         return alert
+
+    def acknowledge(self, alert_dicts: Iterable[dict]) -> None:
+        offsets = dict()
+        for alert in alert_dicts:
+            meta = alert["__kafka"]
+            key, value = (meta["topic"], meta["partition"]), meta["offset"]
+            if key not in offsets:
+                offsets[key] = value
+            elif value > offsets[key]:
+                offsets[key] = value
+        self._consumer.commit(
+            [
+                confluent_kafka.TopicPartition(topic, partition, offset)
+                for (topic, partition), offset in offsets.items()
+            ]
+        )
 
     def alerts(self, limit: Optional[int] = None) -> Iterator[dict]:
         """
