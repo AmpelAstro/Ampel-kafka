@@ -80,9 +80,9 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
                 offsets[key] = value
             elif value > offsets[key]:
                 offsets[key] = value
-        self._consumer.commit(
+        self._consumer.store_offsets(
             [
-                confluent_kafka.TopicPartition(topic, partition, offset)
+                confluent_kafka.TopicPartition(topic, partition, offset + 1)
                 for (topic, partition), offset in offsets.items()
             ]
         )
