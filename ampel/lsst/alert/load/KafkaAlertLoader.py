@@ -5,6 +5,7 @@ import itertools
 import logging
 import uuid
 from typing import Iterable, Iterator, Optional, Any
+from ampel.log.AmpelLogger import AmpelLogger
 
 import fastavro
 from pydantic import Field
@@ -39,7 +40,10 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        config = {"group.id": self.group_name, "auto_commit": False} | self.kafka_consumer_properties
+        config = {
+            "group.id": self.group_name,
+            "auto_commit": False,
+        } | self.kafka_consumer_properties
 
         self._consumer = AllConsumingConsumer(
             self.bootstrap,
@@ -49,6 +53,10 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
             **config,
         )
         self._it = None
+
+    def set_logger(self, logger: AmpelLogger) -> None:
+        super().set_logger(logger)
+        self._consumer._logger = logger
 
     @staticmethod
     def _add_message_metadata(alert: dict, message: confluent_kafka.Message):
