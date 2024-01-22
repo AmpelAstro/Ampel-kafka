@@ -106,13 +106,17 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
 
         for message in itertools.islice(self._consumer, limit):
             alert = fastavro.schemaless_reader(
-                io.BytesIO(message.value()), schema
+                io.BytesIO(message.value()),
+                writer_schema=schema,
+                reader_schema=None,
             )
             if isinstance(alert, list):
                 for d in alert:
                     yield self._add_message_metadata(d, message)
-            else:
+            elif isinstance(alert, dict):
                 yield self._add_message_metadata(alert, message)
+            else:
+                raise TypeError(f"can't handle messages that deserialize to {type(message)}")
 
     def __next__(self) -> dict:
         if self._it is None:
