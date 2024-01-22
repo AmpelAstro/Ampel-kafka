@@ -4,17 +4,17 @@ import io
 import itertools
 import logging
 import uuid
-from typing import Iterable, Iterator, Optional, Any
-from ampel.log.AmpelLogger import AmpelLogger
+from typing import Any, Iterable, Iterator, Optional
 
+import confluent_kafka
 import fastavro
 from pydantic import Field
 
 from ampel.abstract.AbsAlertLoader import AbsAlertLoader
+from ampel.log.AmpelLogger import AmpelLogger
 from ampel.ztf.t0.load.AllConsumingConsumer import AllConsumingConsumer
-import confluent_kafka
 
-from .HttpSchemaRepository import parse_schema, DEFAULT_SCHEMA
+from .HttpSchemaRepository import DEFAULT_SCHEMA, parse_schema
 
 log = logging.getLogger(__name__)
 
