@@ -85,9 +85,7 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
         for alert in alert_dicts:
             meta = alert["__kafka"]
             key, value = (meta["topic"], meta["partition"]), meta["offset"]
-            if key not in offsets:
-                offsets[key] = value
-            elif value > offsets[key]:
+            if key not in offsets or value > offsets[key]:
                 offsets[key] = value
         self._consumer.store_offsets(
             [
