@@ -116,7 +116,9 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
             elif isinstance(alert, dict):
                 yield self._add_message_metadata(alert, message)
             else:
-                raise TypeError(f"can't handle messages that deserialize to {type(message)}")
+                raise TypeError(
+                    f"can't handle messages that deserialize to {type(message)}"
+                )
 
     def __next__(self) -> dict:
         if self._it is None:
