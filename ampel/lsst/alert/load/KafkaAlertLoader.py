@@ -81,7 +81,7 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
         return alert
 
     def acknowledge(self, alert_dicts: Iterable[dict]) -> None:
-        offsets = dict()
+        offsets: dict[tuple[str, int], int] = dict()
         for alert in alert_dicts:
             meta = alert["__kafka"]
             key, value = (meta["topic"], meta["partition"]), meta["offset"]
