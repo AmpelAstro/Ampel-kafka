@@ -4,7 +4,8 @@ import io
 import itertools
 import logging
 import uuid
-from typing import Any, Iterable, Iterator, Optional
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 import confluent_kafka
 import fastavro
@@ -95,7 +96,7 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
             ]
         )
 
-    def alerts(self, limit: Optional[int] = None) -> Iterator[dict]:
+    def alerts(self, limit: None | int = None) -> Iterator[dict]:
         """
         Generate alerts until timeout is reached
         :returns: dict instance of the alert content
