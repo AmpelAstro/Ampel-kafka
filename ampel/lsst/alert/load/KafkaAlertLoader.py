@@ -57,7 +57,7 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
 
     def set_logger(self, logger: AmpelLogger) -> None:
         super().set_logger(logger)
-        self._consumer._logger = logger
+        self._consumer._logger = logger  # noqa: SLF001
 
     @staticmethod
     def _add_message_metadata(alert: dict, message: confluent_kafka.Message):
