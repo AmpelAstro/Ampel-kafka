@@ -81,6 +81,7 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
                 "receive.message.max.bytes": 2**29,
                 "enable.partition.eof": False,  # don't emit messages on EOF
                 "value.deserializer": deserializer,
+                "error_cb": self._raise_errors,
             }
             | (
                 {
@@ -108,6 +109,9 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
 
         self._poll_interval = max((1, min((3, self.timeout))))
         self._poll_attempts = max((1, int(self.timeout / self._poll_interval)))
+
+    def _raise_errors(self, exc: Exception) -> None:
+        raise exc
 
     def set_logger(self, logger: AmpelLogger) -> None:
         super().set_logger(logger)
