@@ -36,6 +36,14 @@ class SASLAuthentication(AmpelBaseModel):
     username: NamedSecret[str]
     password: NamedSecret[str]
 
+    def librdkafka_config(self) -> dict[str, Any]:
+        return {
+            "security.protocol": self.protocol,
+            "sasl.mechanism": self.mechanism,
+            "sasl.username": self.username.get(),
+            "sasl.password": self.password.get(),
+        }
+
 
 class KafkaAlertLoader(AbsAlertLoader[dict]):
     """
@@ -90,11 +98,8 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
                     else str(uuid.uuid1())
                 }
                 if self.auth is None
-                else {
-                    "security.protocol": self.auth.protocol,
-                    "sasl.mechanism": self.auth.mechanism,
-                    "sasl.username": self.auth.username.get(),
-                    "sasl.password": self.auth.password.get(),
+                else self.auth.librdkafka_config()
+                | {
                     "group.id": self.group_name
                     if self.group_name
                     else f"{self.auth.username.get()}-{uuid.uuid1()}",
