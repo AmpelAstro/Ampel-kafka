@@ -126,13 +126,14 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
         meta = {}
         timestamp_kind, timestamp = message.timestamp()
         meta["timestamp"] = {
-            (
+            "kind": (
                 "create"
                 if timestamp_kind == confluent_kafka.TIMESTAMP_CREATE_TIME
                 else "append"
                 if timestamp_kind == confluent_kafka.TIMESTAMP_LOG_APPEND_TIME
                 else "unavailable"
-            ): timestamp
+            ),
+            "value": timestamp,
         }
         meta["topic"] = message.topic()
         meta["partition"] = message.partition()
