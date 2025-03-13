@@ -1,122 +1,41 @@
 #!/usr/bin/env python
 
 import itertools
-import uuid
-from collections.abc import Iterable, Iterator
-from typing import Annotated, Any, Literal
+from collections.abc import Callable, Iterable, Iterator
+from typing import Any
 
 import confluent_kafka
-from annotated_types import Gt, MinLen
-from confluent_kafka.deserializing_consumer import DeserializingConsumer
-from confluent_kafka.schema_registry import SchemaRegistryClient
-from confluent_kafka.schema_registry.avro import AvroDeserializer
+from pydantic import TypeAdapter
 
 from ampel.abstract.AbsAlertLoader import AbsAlertLoader
-from ampel.base.AmpelBaseModel import AmpelBaseModel
 from ampel.log.AmpelLogger import AmpelLogger
-from ampel.secret.NamedSecret import NamedSecret
+from ampel.lsst.kafka.AvroSchema import AvroSchema
+from ampel.lsst.kafka.KafkaConsumerBase import KafkaConsumerBase
 
-from .HttpSchemaRepository import DEFAULT_SCHEMA
-from .PlainAvroDeserializer import Deserializer, PlainAvroDeserializer
-
-
-class SchemaRegistryURL(AmpelBaseModel):
-    registry: str
+_get_schema: Callable[[Any], AvroSchema] = TypeAdapter(
+    AvroSchema
+).validate_python
 
 
-class StaticSchemaURL(AmpelBaseModel):
-    root_url: str = DEFAULT_SCHEMA
-
-
-class SASLAuthentication(AmpelBaseModel):
-    protocol: Literal["SASL_PLAINTEXT", "SASL_SSL"] = "SASL_PLAINTEXT"
-    mechanism: Literal["PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"] = (
-        "SCRAM-SHA-512"
-    )
-    username: NamedSecret[str]
-    password: NamedSecret[str]
-
-    def librdkafka_config(self) -> dict[str, Any]:
-        return {
-            "security.protocol": self.protocol,
-            "sasl.mechanism": self.mechanism,
-            "sasl.username": self.username.get(),
-            "sasl.password": self.password.get(),
-        }
-
-
-class KafkaAlertLoader(AbsAlertLoader[dict]):
+class KafkaAlertLoader(AbsAlertLoader[dict], KafkaConsumerBase):
     """
     Load alerts from one or more Kafka topics
     """
 
-    #: Address of Kafka broker
-    bootstrap: str
-    #: Optional authentication
-    auth: None | SASLAuthentication = None
-    #: Topics to subscribe to
-    topics: Annotated[list[str], MinLen(1)]
     #: Message schema (or url pointing to one)
-    avro_schema: SchemaRegistryURL | StaticSchemaURL
-    #: Consumer group name
-    group_name: None | str = None
-    #: time to wait for messages before giving up, in seconds
-    timeout: Annotated[int, Gt(0)] = 1
-    #: extra configuration to pass to confluent_kafka.Consumer
-    kafka_consumer_properties: dict[str, Any] = {}
+    avro_schema: None | AvroSchema
 
     def __init__(self, **kwargs):
         if isinstance(kwargs.get("avro_schema"), str):
             kwargs["avro_schema"] = {"root_url": kwargs["avro_schema"]}
+
+        if avro_schema := kwargs.get("avro_schema"):
+            kwargs.setdefault("kafka_consumer_properties", {})[
+                "value.deserializer"
+            ] = _get_schema(avro_schema).deserializer()
         super().__init__(**kwargs)
 
-        if isinstance(self.avro_schema, StaticSchemaURL):
-            deserializer: Deserializer = PlainAvroDeserializer(
-                self.avro_schema.root_url
-            )
-        else:
-            deserializer = AvroDeserializer(
-                SchemaRegistryClient({"url": self.avro_schema.registry})
-            )
-
-        config = (
-            {
-                "bootstrap.servers": self.bootstrap,
-                "auto.offset.reset": "smallest",
-                "enable.auto.commit": True,
-                "enable.auto.offset.store": False,
-                "auto.commit.interval.ms": 10000,
-                "receive.message.max.bytes": 2**29,
-                "enable.partition.eof": False,  # don't emit messages on EOF
-                "value.deserializer": deserializer,
-                "error_cb": self._raise_errors,
-            }
-            | (
-                {
-                    "group.id": self.group_name
-                    if self.group_name
-                    else str(uuid.uuid1())
-                }
-                if self.auth is None
-                else self.auth.librdkafka_config()
-                | {
-                    "group.id": self.group_name
-                    if self.group_name
-                    else f"{self.auth.username.get()}-{uuid.uuid1()}",
-                }
-            )
-            | self.kafka_consumer_properties
-        )
-
-        self._consumer = DeserializingConsumer(config)
-        self._consumer.subscribe(self.topics)
-        self._it = None
-
-        self._poll_interval = max((1, min((3, self.timeout))))
-        self._poll_attempts = max((1, int(self.timeout / self._poll_interval)))
-
-    def _raise_errors(self, exc: Exception) -> None:
-        raise exc
+        self._it: None | Iterator[dict] = None
 
     def set_logger(self, logger: AmpelLogger) -> None:
         super().set_logger(logger)
@@ -170,37 +89,6 @@ class KafkaAlertLoader(AbsAlertLoader[dict]):
             err = exc.args[0]
             if err.code() != confluent_kafka.KafkaError._STATE:  # noqa: SLF001
                 raise
-
-    def _poll(self) -> confluent_kafka.Message | None:
-        """
-        Poll for a message, ignoring nonfatal errors
-        """
-        message = None
-        for _ in range(self._poll_attempts):
-            # wake up occasionally to catch SIGINT
-            message = self._consumer.poll(self._poll_interval)
-            if message is not None:
-                if err := message.error():
-                    if (
-                        err.code()
-                        == confluent_kafka.KafkaError.UNKNOWN_TOPIC_OR_PART
-                    ):
-                        # ignore unknown topic messages
-                        continue
-                    if err.code() in (
-                        confluent_kafka.KafkaError._TIMED_OUT,  # noqa: SLF001
-                        confluent_kafka.KafkaError._MAX_POLL_EXCEEDED,  # noqa: SLF001
-                    ):
-                        # bail on timeouts
-                        if self._logger:
-                            self._logger.debug(f"Got {err}")
-                        return None
-                break
-        if message is None:
-            return message
-        if message.error():
-            raise message.error()
-        return message
 
     def _consume(self) -> Iterator[dict]:
         while True:
