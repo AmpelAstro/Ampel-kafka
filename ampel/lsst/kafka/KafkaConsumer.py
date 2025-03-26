@@ -11,7 +11,7 @@ from .KafkaConsumerBase import KafkaConsumerBase
 
 class KafkaConsumer(KafkaConsumerBase, AbsConsumer[QueueItem]):
     def consume(self) -> None | QueueItem:
-        message = self._poll()
+        message = self._poll(self.stop)
         if message is None:
             return None
         item: QueueItem = bson.decode(message.value())  # type: ignore[assignment]

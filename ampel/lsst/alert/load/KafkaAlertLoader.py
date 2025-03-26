@@ -2,6 +2,7 @@
 
 import itertools
 from collections.abc import Callable, Iterable, Iterator
+from threading import Event
 from typing import Any
 
 import confluent_kafka
@@ -17,7 +18,7 @@ _get_schema: Callable[[Any], AvroSchema] = TypeAdapter(
 ).validate_python
 
 
-class KafkaAlertLoader(AbsAlertLoader[dict], KafkaConsumerBase):
+class KafkaAlertLoader(KafkaConsumerBase, AbsAlertLoader[dict]):
     """
     Load alerts from one or more Kafka topics
     """
@@ -91,8 +92,9 @@ class KafkaAlertLoader(AbsAlertLoader[dict], KafkaConsumerBase):
                 raise
 
     def _consume(self) -> Iterator[dict]:
-        while True:
-            message = self._poll()
+        stop = Event()
+        while not stop.is_set():
+            message = self._poll(stop)
             if message is None:
                 return
             else:

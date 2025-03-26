@@ -1,10 +1,11 @@
 from collections.abc import Callable
 from functools import partial
-from typing import Any, Generic, TypeVar
+from threading import Event, Thread
+from typing import Any, Generic, Self, TypeVar
 
 from confluent_kafka import KafkaException, Producer
 
-from ampel.base.AmpelABC import AmpelABC
+from ampel.abstract.AbsContextManager import AbsContextManager
 from ampel.base.decorator import abstractmethod
 
 from .SASLAuthentication import SASLAuthentication
@@ -12,7 +13,7 @@ from .SASLAuthentication import SASLAuthentication
 _T = TypeVar("_T")
 
 
-class KafkaProducerBase(AmpelABC, Generic[_T], abstract=True):
+class KafkaProducerBase(AbsContextManager, Generic[_T], abstract=True):
     bootstrap: str
     topic: str
     auth: None | SASLAuthentication = None
@@ -29,6 +30,13 @@ class KafkaProducerBase(AmpelABC, Generic[_T], abstract=True):
             | (self.auth.librdkafka_config() if self.auth else {})
             | self.kafka_producer_properties
         )
+        self._stop_thread = Event()
+        self._thread: None | Thread = None
+
+    def _poll(self):
+        # Poll producer from a thread to trigger delivery callbacks
+        while not self._stop_thread.is_set():
+            self._producer.poll(1)
 
     @abstractmethod
     def serialize(self, message: _T) -> bytes: ...  # type: ignore[empty-body]
@@ -52,11 +60,27 @@ class KafkaProducerBase(AmpelABC, Generic[_T], abstract=True):
             self.serialize(message),
             on_delivery=partial(self._on_delivery, delivery_callback),
         )
-        self._producer.poll(0)
 
-    def flush(self):
+    def __enter__(self) -> "Self":
+        assert self._thread is None, (
+            f"{self.__class__.__qualname__} is not reentrant"
+        )
+        # start the delivery callback thread
+        self._stop_thread.clear()
+        self._thread = Thread(target=self._poll)
+        self._thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        # stop the delivery callback thread
+        assert self._thread is not None
+        self._stop_thread.set()
+        self._thread.join()
+        self._thread = None
+        # ensure enqueued messages are delivered
         if (in_queue := self._producer.flush(self.delivery_timeout)) > 0:
             raise TimeoutError(
                 f"{in_queue} messages still in queue after {self.delivery_timeout} s"
             )
+        # trigger callbacks for any remaining messages
         self._producer.poll(0)

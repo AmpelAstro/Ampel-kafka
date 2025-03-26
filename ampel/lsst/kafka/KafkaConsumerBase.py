@@ -1,17 +1,19 @@
+import os
 import uuid
-from contextlib import suppress
-from typing import Annotated, Any
+from threading import Event
+from typing import Annotated, Any, Self
 
 import confluent_kafka
 from annotated_types import Gt, MinLen
 from confluent_kafka.deserializing_consumer import DeserializingConsumer
 
+from ampel.abstract.AbsContextManager import AbsContextManager
 from ampel.base.AmpelUnit import AmpelUnit
 
 from .SASLAuthentication import SASLAuthentication
 
 
-class KafkaConsumerBase(AmpelUnit):
+class KafkaConsumerBase(AbsContextManager, AmpelUnit):
     #: Address of Kafka broker
     bootstrap: str
     #: Optional authentication
@@ -22,6 +24,8 @@ class KafkaConsumerBase(AmpelUnit):
     group_name: None | str = None
     #: time to wait for messages before giving up, in seconds
     timeout: Annotated[int, Gt(0)] = 1
+    #: environment variable to use as group.instance.id. If None, disable static membership
+    instance_id_env_var: None | str = "HOSTNAME"
     #: extra configuration to pass to confluent_kafka.Consumer
     kafka_consumer_properties: dict[str, Any] = {}
 
@@ -52,11 +56,17 @@ class KafkaConsumerBase(AmpelUnit):
                     else f"{self.auth.username.get()}-{uuid.uuid1()}",
                 }
             )
+            # allow process to restart without triggering a rebalance
+            | (
+                {"group.instance.id": os.getenv(self.instance_id_env_var)}
+                if self.instance_id_env_var
+                and os.getenv(self.instance_id_env_var)
+                else {}
+            )
             | self.kafka_consumer_properties
         )
 
         self._consumer = DeserializingConsumer(config)
-        self._consumer.subscribe(self.topics)
 
         self._poll_interval = max((1, min((3, self.timeout))))
         self._poll_attempts = max((1, int(self.timeout / self._poll_interval)))
@@ -64,7 +74,7 @@ class KafkaConsumerBase(AmpelUnit):
     def _raise_errors(self, exc: Exception) -> None:
         raise exc
 
-    def _poll(self) -> confluent_kafka.Message | None:
+    def _poll(self, stop: Event) -> confluent_kafka.Message | None:
         """
         Poll for a message, ignoring nonfatal errors
         """
@@ -72,7 +82,9 @@ class KafkaConsumerBase(AmpelUnit):
         # wake up occasionally to catch SIGINT
         for _ in range(self._poll_attempts):
             try:
-                if message := self._consumer.poll(self._poll_interval):
+                if stop.is_set() or (
+                    message := self._consumer.poll(self._poll_interval)
+                ):
                     break
             except confluent_kafka.KafkaError as exc:
                 if (
@@ -88,9 +100,14 @@ class KafkaConsumerBase(AmpelUnit):
                     # bail on timeouts
                     return None
                 raise
+            except KeyboardInterrupt:
+                stop.set()
         return message
 
-    def __del__(self):
+    def __enter__(self) -> Self:
+        self._consumer.subscribe(self.topics)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
         self._consumer.commit()
-        with suppress(confluent_kafka.KafkaError):
-            self._consumer.close()
+        self._consumer.unsubscribe()
