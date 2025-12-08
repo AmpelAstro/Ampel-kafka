@@ -10,14 +10,14 @@ from confluent_kafka.deserializing_consumer import DeserializingConsumer
 from ampel.abstract.AbsContextManager import AbsContextManager
 from ampel.base.AmpelUnit import AmpelUnit
 
-from .SASLAuthentication import SASLAuthentication
+from .KafkaAuthentication import KafkaAuthentication, SASLAuthentication
 
 
 class KafkaConsumerBase(AbsContextManager, AmpelUnit):
     #: Address of Kafka broker
     bootstrap: str
     #: Optional authentication
-    auth: None | SASLAuthentication = None
+    auth: None | KafkaAuthentication = None
     #: Topics to subscribe to
     topics: Annotated[list[str], MinLen(1)]
     #: Consumer group name
@@ -31,6 +31,11 @@ class KafkaConsumerBase(AbsContextManager, AmpelUnit):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        group_name = self.group_name if self.group_name else str(uuid.uuid1())
+        if isinstance(self.auth, SASLAuthentication):
+            group_name = f"{self.auth.username.get()}-{group_name}"
+
         config = (
             {
                 "bootstrap.servers": self.bootstrap,
@@ -41,21 +46,9 @@ class KafkaConsumerBase(AbsContextManager, AmpelUnit):
                 "receive.message.max.bytes": 2**29,
                 "enable.partition.eof": False,  # don't emit messages on EOF
                 "error_cb": self._raise_errors,
+                "group.id": group_name,
             }
-            | (
-                {
-                    "group.id": self.group_name
-                    if self.group_name
-                    else str(uuid.uuid1())
-                }
-                if self.auth is None
-                else self.auth.librdkafka_config()
-                | {
-                    "group.id": self.group_name
-                    if self.group_name
-                    else f"{self.auth.username.get()}-{uuid.uuid1()}",
-                }
-            )
+            | (self.auth.librdkafka_config() if self.auth is not None else {})
             # allow process to restart without triggering a rebalance
             | (
                 {"group.instance.id": os.getenv(self.instance_id_env_var)}

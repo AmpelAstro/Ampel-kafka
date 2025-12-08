@@ -8,7 +8,7 @@ from confluent_kafka import KafkaException, Producer
 from ampel.abstract.AbsContextManager import AbsContextManager
 from ampel.base.decorator import abstractmethod
 
-from .SASLAuthentication import SASLAuthentication
+from .KafkaAuthentication import KafkaAuthentication
 
 _T = TypeVar("_T")
 
@@ -16,7 +16,7 @@ _T = TypeVar("_T")
 class KafkaProducerBase(AbsContextManager, Generic[_T], abstract=True):
     bootstrap: str
     topic: str
-    auth: None | SASLAuthentication = None
+    auth: None | KafkaAuthentication = None
 
     kafka_producer_properties: dict[str, Any] = {}
     delivery_timeout: float = 10.0
