@@ -6,9 +6,7 @@ from ampel.secret.NamedSecret import NamedSecret
 
 class SASLAuthentication(AmpelBaseModel):
     protocol: Literal["SASL_PLAINTEXT", "SASL_SSL"] = "SASL_PLAINTEXT"
-    mechanism: Literal["PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"] = (
-        "SCRAM-SHA-512"
-    )
+    mechanism: Literal["PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512"] = "SCRAM-SHA-512"
     username: NamedSecret[str]
     password: NamedSecret[str]
 

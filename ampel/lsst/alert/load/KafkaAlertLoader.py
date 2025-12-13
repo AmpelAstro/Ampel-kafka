@@ -13,9 +13,7 @@ from ampel.log.AmpelLogger import AmpelLogger
 from ampel.lsst.kafka.AvroSchema import AvroSchema
 from ampel.lsst.kafka.KafkaConsumerBase import KafkaConsumerBase
 
-_get_schema: Callable[[Any], AvroSchema] = TypeAdapter(
-    AvroSchema
-).validate_python
+_get_schema: Callable[[Any], AvroSchema] = TypeAdapter(AvroSchema).validate_python
 
 
 class KafkaAlertLoader(KafkaConsumerBase, AbsAlertLoader[dict]):
@@ -31,9 +29,9 @@ class KafkaAlertLoader(KafkaConsumerBase, AbsAlertLoader[dict]):
             kwargs["avro_schema"] = {"root_url": kwargs["avro_schema"]}
 
         if avro_schema := kwargs.get("avro_schema"):
-            kwargs.setdefault("kafka_consumer_properties", {})[
-                "value.deserializer"
-            ] = _get_schema(avro_schema).deserializer()
+            kwargs.setdefault("kafka_consumer_properties", {})["value.deserializer"] = (
+                _get_schema(avro_schema).deserializer()
+            )
         super().__init__(**kwargs)
 
         self._it: None | Iterator[dict] = None
@@ -76,9 +74,7 @@ class KafkaAlertLoader(KafkaConsumerBase, AbsAlertLoader[dict]):
         try:
             self._consumer.store_offsets(
                 offsets=[
-                    confluent_kafka.TopicPartition(
-                        topic, partition, offset + 1
-                    )
+                    confluent_kafka.TopicPartition(topic, partition, offset + 1)
                     for (topic, partition), offset in offsets.items()
                 ]
             )

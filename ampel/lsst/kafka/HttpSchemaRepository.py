@@ -46,9 +46,7 @@ class HttpSchemaRepostory(AbstractSchemaRepository):
 
     def load(self, name: str):
         try:
-            response = self.session.get(
-                f"{self.base_url}{name}{self.file_ext}"
-            )
+            response = self.session.get(f"{self.base_url}{name}{self.file_ext}")
             response.raise_for_status()
             return response.json()
         except Exception as error:

@@ -52,8 +52,7 @@ class KafkaConsumerBase(AbsContextManager, AmpelUnit):
             # allow process to restart without triggering a rebalance
             | (
                 {"group.instance.id": os.getenv(self.instance_id_env_var)}
-                if self.instance_id_env_var
-                and os.getenv(self.instance_id_env_var)
+                if self.instance_id_env_var and os.getenv(self.instance_id_env_var)
                 else {}
             )
             | self.kafka_consumer_properties
@@ -80,10 +79,7 @@ class KafkaConsumerBase(AbsContextManager, AmpelUnit):
                 ):
                     break
             except confluent_kafka.KafkaError as exc:
-                if (
-                    exc.code()
-                    == confluent_kafka.KafkaError.UNKNOWN_TOPIC_OR_PART
-                ):
+                if exc.code() == confluent_kafka.KafkaError.UNKNOWN_TOPIC_OR_PART:
                     # ignore unknown topic messages
                     continue
                 if exc.code() in (

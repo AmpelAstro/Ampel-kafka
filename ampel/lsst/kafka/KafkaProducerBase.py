@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from functools import partial
 from threading import Event, Thread
-from typing import Any, Generic, Self, TypeVar
+from typing import Any, Self
 
 from confluent_kafka import KafkaException, Producer
 
@@ -10,10 +10,8 @@ from ampel.base.decorator import abstractmethod
 
 from .KafkaAuthentication import KafkaAuthentication
 
-_T = TypeVar("_T")
 
-
-class KafkaProducerBase(AbsContextManager, Generic[_T], abstract=True):
+class KafkaProducerBase[T](AbsContextManager, abstract=True):
     bootstrap: str
     topic: str
     auth: None | KafkaAuthentication = None
@@ -39,7 +37,7 @@ class KafkaProducerBase(AbsContextManager, Generic[_T], abstract=True):
             self._producer.poll(1)
 
     @abstractmethod
-    def serialize(self, message: _T) -> bytes: ...  # type: ignore[empty-body]
+    def serialize(self, message: T) -> bytes: ...  # type: ignore[empty-body]
 
     def _on_delivery(
         self,
@@ -52,9 +50,7 @@ class KafkaProducerBase(AbsContextManager, Generic[_T], abstract=True):
         if hook is not None:
             hook()
 
-    def produce(
-        self, message: _T, delivery_callback: None | Callable[[], None]
-    ) -> None:
+    def produce(self, message: T, delivery_callback: None | Callable[[], None]) -> None:
         self._producer.produce(
             self.topic,
             self.serialize(message),
@@ -62,9 +58,7 @@ class KafkaProducerBase(AbsContextManager, Generic[_T], abstract=True):
         )
 
     def __enter__(self) -> "Self":
-        assert self._thread is None, (
-            f"{self.__class__.__qualname__} is not reentrant"
-        )
+        assert self._thread is None, f"{self.__class__.__qualname__} is not reentrant"
         # start the delivery callback thread
         self._stop_thread.clear()
         self._thread = Thread(target=self._poll)
