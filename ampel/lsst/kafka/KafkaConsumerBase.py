@@ -10,7 +10,7 @@ from confluent_kafka.deserializing_consumer import DeserializingConsumer
 from ampel.abstract.AbsContextManager import AbsContextManager
 from ampel.base.AmpelUnit import AmpelUnit
 
-from .KafkaAuthentication import KafkaAuthentication, SASLAuthentication
+from .KafkaAuthentication import KafkaAuthentication
 
 
 class KafkaConsumerBase(AbsContextManager, AmpelUnit):
@@ -33,8 +33,6 @@ class KafkaConsumerBase(AbsContextManager, AmpelUnit):
         super().__init__(**kwargs)
 
         group_name = self.group_name if self.group_name else str(uuid.uuid1())
-        if isinstance(self.auth, SASLAuthentication):
-            group_name = f"{self.auth.username.get()}-{group_name}"
 
         config = (
             {
