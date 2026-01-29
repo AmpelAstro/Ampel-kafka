@@ -78,13 +78,14 @@ class KafkaConsumerBase(AbsContextManager, AmpelUnit):
                     message := self._consumer.poll(self._poll_interval)
                 ):
                     break
-            except confluent_kafka.KafkaError as exc:
-                if exc.code() == confluent_kafka.KafkaError.UNKNOWN_TOPIC_OR_PART:
+            except confluent_kafka.KafkaException as exc:
+                err = exc.args[0]
+                if err.name() == "UNKNOWN_TOPIC_OR_PART":
                     # ignore unknown topic messages
                     continue
-                if exc.code() in (
-                    confluent_kafka.KafkaError._TIMED_OUT,  # noqa: SLF001
-                    confluent_kafka.KafkaError._MAX_POLL_EXCEEDED,  # noqa: SLF001
+                if err.name() in (
+                    "_TIMED_OUT",
+                    "_MAX_POLL_EXCEEDED",
                 ):
                     # bail on timeouts
                     return None

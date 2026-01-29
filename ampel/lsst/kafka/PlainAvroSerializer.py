@@ -1,4 +1,5 @@
 import io
+from typing import Any
 
 import fastavro
 from confluent_kafka.serialization import SerializationContext, Serializer
@@ -16,8 +17,8 @@ class PlainAvroSerializer(Serializer):
 
     def __call__(
         self,
-        value: dict | None,
-        ctx: SerializationContext,  # noqa: ARG002
+        value: Any,
+        ctx: SerializationContext | None = None,  # noqa: ARG002
     ) -> bytes | None:
         if value is None:
             return None

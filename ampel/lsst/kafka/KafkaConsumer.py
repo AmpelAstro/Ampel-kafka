@@ -12,11 +12,19 @@ from .KafkaConsumerBase import KafkaConsumerBase
 class KafkaConsumer(KafkaConsumerBase, AbsConsumer[QueueItem]):
     def consume(self) -> None | QueueItem:
         message = self._poll(self.stop)
-        if message is None:
+        if message is None or (payload := message.value()) is None:
             return None
-        item: QueueItem = bson.decode(message.value())  # type: ignore[assignment]
+        item: QueueItem = bson.decode(payload)  # type: ignore[assignment]
+        topic, partition, offset = (
+            message.topic(),
+            message.partition(),
+            message.offset(),
+        )
+        assert isinstance(topic, str)
+        assert isinstance(partition, int)
+        assert isinstance(offset, int)
         item["_meta"] = confluent_kafka.TopicPartition(  # type: ignore[typeddict-unknown-key]
-            message.topic(), message.partition(), message.offset() + 1
+            topic, partition, offset + 1
         )
         return item
 
@@ -38,5 +46,5 @@ class KafkaConsumer(KafkaConsumerBase, AbsConsumer[QueueItem]):
             # while a batch of messages is in flight. see also:
             # https://github.com/confluentinc/confluent-kafka-dotnet/issues/1861
             err = exc.args[0]
-            if err.code() != confluent_kafka.KafkaError._STATE:  # noqa: SLF001
+            if err.name() != "_STATE":
                 raise

@@ -14,7 +14,13 @@ class PlainAvroDeserializer(Deserializer):
     def __init__(self, avro_schema: dict | str):
         self._schema = parse_schema(avro_schema)
 
-    def __call__(self, value: bytes, ctx: SerializationContext) -> dict:  # noqa: ARG002
+    def __call__(
+        self,
+        value: bytes | None,
+        ctx: SerializationContext | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        if value is None:
+            return None
         return fastavro.schemaless_reader(  # type: ignore[return-value]
             io.BytesIO(value),
             writer_schema=self._schema,

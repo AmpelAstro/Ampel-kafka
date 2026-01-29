@@ -41,7 +41,7 @@ class KafkaAlertLoader(KafkaConsumerBase, AbsAlertLoader[dict]):
 
     @staticmethod
     def _add_message_metadata(alert: dict, message: confluent_kafka.Message):
-        meta = {}
+        meta: dict[str, Any] = {}
         timestamp_kind, timestamp = message.timestamp()
         meta["timestamp"] = {
             "kind": (
@@ -53,9 +53,17 @@ class KafkaAlertLoader(KafkaConsumerBase, AbsAlertLoader[dict]):
             ),
             "value": timestamp,
         }
-        meta["topic"] = message.topic()
-        meta["partition"] = message.partition()
-        meta["offset"] = message.offset()
+        topic, partition, offset = (
+            message.topic(),
+            message.partition(),
+            message.offset(),
+        )
+        assert isinstance(topic, str)
+        assert isinstance(partition, int)
+        assert isinstance(offset, int)
+        meta["topic"] = topic
+        meta["partition"] = partition
+        meta["offset"] = offset
         meta["key"] = message.key()
 
         alert["__kafka"] = meta
@@ -84,17 +92,17 @@ class KafkaAlertLoader(KafkaConsumerBase, AbsAlertLoader[dict]):
             # while a batch of messages is in flight. see also:
             # https://github.com/confluentinc/confluent-kafka-dotnet/issues/1861
             err = exc.args[0]
-            if err.code() != confluent_kafka.KafkaError._STATE:  # noqa: SLF001
+            if err.name() != "_STATE":
                 raise
 
     def _consume(self) -> Iterator[dict]:
         stop = Event()
         while not stop.is_set():
             message = self._poll(stop)
-            if message is None:
+            if message is None or not isinstance(alert := message.value(), dict):
                 return
             else:
-                yield self._add_message_metadata(message.value(), message)
+                yield self._add_message_metadata(alert, message)
 
     def alerts(self, limit: None | int = None) -> Iterator[dict]:
         """
