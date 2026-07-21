@@ -12,9 +12,10 @@ from pydantic import BaseModel, BeforeValidator
 
 from ampel.abstract.AbsUnitResultAdapter import AbsUnitResultAdapter
 from ampel.base.AmpelUnit import AmpelUnit
-from ampel.lsst.kafka.KafkaAuthentication import SASLAuthentication
 from ampel.struct.UnitResult import UnitResult
 from ampel.util.mappings import get_by_path
+
+from .KafkaAuthentication import SASLAuthentication
 
 
 def _get_model(value: Any) -> type[BaseModel]:

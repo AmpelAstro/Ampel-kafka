@@ -5,10 +5,11 @@ from confluent_kafka import SerializingProducer
 
 from ampel.abstract.AbsUnitResultAdapter import AbsUnitResultAdapter
 from ampel.base.AmpelUnit import AmpelUnit
-from ampel.lsst.kafka.AvroSchema import AvroSchema
-from ampel.lsst.kafka.KafkaAuthentication import KafkaAuthentication
 from ampel.struct.UnitResult import UnitResult
 from ampel.util.mappings import get_by_path
+
+from .AvroSchema import AvroSchema
+from .KafkaAuthentication import KafkaAuthentication
 
 
 class KafkaReporter(AmpelUnit):

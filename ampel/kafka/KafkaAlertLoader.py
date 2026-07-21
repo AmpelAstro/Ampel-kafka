@@ -10,8 +10,9 @@ from pydantic import TypeAdapter
 
 from ampel.abstract.AbsAlertLoader import AbsAlertLoader
 from ampel.log.AmpelLogger import AmpelLogger
-from ampel.lsst.kafka.AvroSchema import AvroSchema
-from ampel.lsst.kafka.KafkaConsumerBase import KafkaConsumerBase
+
+from .AvroSchema import AvroSchema
+from .KafkaConsumerBase import KafkaConsumerBase
 
 _get_schema: Callable[[Any], AvroSchema] = TypeAdapter(AvroSchema).validate_python
 
