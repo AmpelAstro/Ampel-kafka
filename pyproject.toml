@@ -25,7 +25,8 @@ classifiers = [
 dependencies = [
     "ampel-interface (>=0.10.4.post2,<0.11)",
     "ampel-alerts (>=0.10.3,<0.11.0)",
-    "confluent-kafka (>=2.15.0,<3.0.0)",
+    "ampel-core (>=0.10.6a23,<0.11)",
+    "confluent-kafka[schemaregistry] (>=2.15.0,<3.0.0)",
     "fastavro (>=1.12.2,<2.0.0)",
     "requests (>=2.34.2,<3.0.0)",
 ]
