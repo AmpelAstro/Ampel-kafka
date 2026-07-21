@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier
-_commit: v0.0.13
+_commit: v0.0.14
 _src_path: gh:AmpelAstro/copier-ampel
 plugin_description: Apache Kafka support for the Ampel system.
 plugin_name: kafka
