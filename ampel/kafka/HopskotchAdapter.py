@@ -79,18 +79,24 @@ class HopskotchAdapter(AbsUnitResultAdapter, HopskotchProducer):
     #: Where to find message in UnitResult.body
     # NB: use list[int | str] to prevent coercion to str
     message_path: None | int | str | list[int | str] = None
+    #: Where to find a condition in UnitResult.body to determine whether to send the message
+    condition_path: None | int | str | list[int | str] = None
     raise_exc: bool = False
     #: Clear the body before returning
     drop_body: bool = False
 
-    def _get_by_path(self, body: dict) -> Any:
-        if self.message_path is None:
+    def _get_by_path(self, body: dict, path: None | int | str | list[int | str]) -> Any:
+        if path is None:
             return body
-        return get_by_path(body, self.message_path)
+        return get_by_path(body, path)
 
     def handle(self, ur: UnitResult) -> UnitResult:
         assert isinstance(ur.body, dict)
-        if isinstance(message := self._get_by_path(ur.body), dict):
+        if self.condition_path is not None:
+            condition = self._get_by_path(ur.body, self.condition_path)
+            if not condition:
+                return ur
+        if isinstance(message := self._get_by_path(ur.body, self.message_path), dict):
             self.send(message)
             self.flush()
         elif isinstance(message, list):
