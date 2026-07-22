@@ -1,6 +1,6 @@
 [project]
 name = "ampel-kafka"
-version = "0.10.0a1"
+version = "0.10.0a2"
 description = "Apache Kafka support for the Ampel system."
 requires-python = ">=3.11, <4"
 authors = [

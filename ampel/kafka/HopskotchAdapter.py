@@ -23,8 +23,6 @@ def _get_model(value: Any) -> type[BaseModel]:
         return value
     if isinstance(value, str):
         mod, attr = value.rsplit(".", 1)
-        if not mod.startswith("ampel."):
-            raise TypeError("Only models from the ampel package are supported")
         model = getattr(importlib.import_module(mod), attr)
         if isinstance(model, type) and issubclass(model, BaseModel):
             return model
@@ -92,10 +90,10 @@ class HopskotchAdapter(AbsUnitResultAdapter, HopskotchProducer):
 
     def handle(self, ur: UnitResult) -> UnitResult:
         assert isinstance(ur.body, dict)
-        if self.condition_path is not None:
-            condition = self._get_by_path(ur.body, self.condition_path)
-            if not condition:
-                return ur
+        if self.condition_path is not None and not get_by_path(
+            ur.body, self.condition_path
+        ):
+            return ur
         if isinstance(message := self._get_by_path(ur.body, self.message_path), dict):
             self.send(message)
             self.flush()
