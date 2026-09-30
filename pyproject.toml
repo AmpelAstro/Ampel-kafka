@@ -59,7 +59,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "--showlocals -ra --integration"
+addopts = "--showlocals -ra"
 filterwarnings = [
     "error",
     "ignore:pkg_resources is deprecated:DeprecationWarning",
