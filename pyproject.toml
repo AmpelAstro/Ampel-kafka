@@ -1,6 +1,6 @@
 [project]
 name = "ampel-kafka"
-version = "0.10.0a2"
+version = "0.10.0a3"
 description = "Apache Kafka support for the Ampel system."
 requires-python = ">=3.11, <4"
 authors = [
@@ -59,7 +59,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "--showlocals -ra"
+addopts = "--showlocals -ra --integration"
 filterwarnings = [
     "error",
     "ignore:pkg_resources is deprecated:DeprecationWarning",
