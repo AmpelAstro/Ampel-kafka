@@ -5,6 +5,7 @@ from typing import Annotated, Any, Self
 
 import confluent_kafka
 from annotated_types import Gt, MinLen
+from confluent_kafka import Consumer
 from confluent_kafka.deserializing_consumer import DeserializingConsumer
 
 from ampel.abstract.AbsContextManager import AbsContextManager
@@ -92,8 +93,29 @@ class KafkaConsumerBase(AbsContextManager, AmpelUnit):
                 stop.set()
         return message
 
+    def advance_offset_to_low_watermark(
+        self, consumer: Consumer, partitions: list[confluent_kafka.TopicPartition]
+    ) -> None:
+        """
+        Callback for when partitions are assigned to this consumer. If stored
+        offsets are smaller than the lower watermark, advance the offset to the
+        lower watermark. This is useful for cases where messages have been
+        deleted from the topic and the stored offset is no longer valid.
+        """
+        expired_offsets = []
+        for p in consumer.committed(partitions, timeout=self.timeout):
+            low, _ = consumer.get_watermark_offsets(p, timeout=self.timeout)
+            if low > p.offset:
+                p.offset = low
+                expired_offsets.append(p)
+        consumer.assign(partitions)
+        if expired_offsets:
+            consumer.store_offsets(offsets=expired_offsets)
+
     def __enter__(self) -> Self:
-        self._consumer.subscribe(self.topics)
+        self._consumer.subscribe(
+            self.topics, on_assign=self.advance_offset_to_low_watermark
+        )
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:

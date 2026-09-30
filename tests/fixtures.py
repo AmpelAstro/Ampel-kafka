@@ -2,7 +2,12 @@ import os
 from pathlib import Path
 
 import pytest
-from confluent_kafka import ConsumerGroupTopicPartitions, TopicPartition
+from confluent_kafka import (
+    ConsumerGroupTopicPartitions,
+    KafkaError,
+    KafkaException,
+    TopicPartition,
+)
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
 from testcontainers.community.kafka import KafkaContainer
@@ -50,7 +55,11 @@ def consumer_group():
 def _delete_consumer_group(admin_client, consumer_group):
     yield
     for future in admin_client.delete_consumer_groups([consumer_group]).values():
-        future.result()
+        try:
+            future.result()
+        except KafkaException as e:
+            if e.args[0].code() != KafkaError.GROUP_ID_NOT_FOUND:
+                raise
 
 
 @pytest.fixture
@@ -81,3 +90,15 @@ def set_offset(admin_client, topic, consumer_group):
             assert result.topic_partitions[0].offset == offset
 
     return _set_offset
+
+
+@pytest.fixture
+def delete_messages(admin_client, topic):
+    def _delete_messages(offset: int) -> None:
+        for future in admin_client.delete_records(
+            [TopicPartition(topic, partition=0, offset=offset)]
+        ).values():
+            result = future.result()
+            assert result.low_watermark == offset
+
+    return _delete_messages
