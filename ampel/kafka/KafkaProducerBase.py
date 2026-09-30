@@ -6,12 +6,13 @@ from typing import Any, Self
 from confluent_kafka import KafkaException, Producer
 
 from ampel.abstract.AbsContextManager import AbsContextManager
+from ampel.base.AmpelUnit import AmpelUnit
 from ampel.base.decorator import abstractmethod
 
 from .KafkaAuthentication import KafkaAuthentication
 
 
-class KafkaProducerBase[T](AbsContextManager, abstract=True):
+class KafkaProducerBase[T](AbsContextManager, AmpelUnit, abstract=True):
     bootstrap: str
     topic: str
     auth: None | KafkaAuthentication = None
@@ -29,7 +30,7 @@ class KafkaProducerBase[T](AbsContextManager, abstract=True):
             | self.kafka_producer_properties
         )
         self._stop_thread = Event()
-        self._thread: None | Thread = None
+        self._thread: Thread | None = None
 
     def _poll(self):
         # Poll producer from a thread to trigger delivery callbacks

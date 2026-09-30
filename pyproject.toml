@@ -1,6 +1,6 @@
 [project]
 name = "ampel-kafka"
-version = "0.10.0a2"
+version = "0.10.0a3"
 description = "Apache Kafka support for the Ampel system."
 requires-python = ">=3.11, <4"
 authors = [
@@ -40,6 +40,7 @@ hop = [
 dev = [
     "pytest-ampel-core (>=0.10.0a4,<0.11)",
     "mypy (>=1.13,<2.0)",
+    "testcontainers (>=4.15.0,<5.0.0)",
 ]
 
 [tool.poetry]
