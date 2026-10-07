@@ -30,7 +30,7 @@ class KafkaAlertLoader(KafkaConsumerBase, AbsAlertLoader[dict]):
             kwargs["avro_schema"] = {"root_url": kwargs["avro_schema"]}
 
         if avro_schema := kwargs.get("avro_schema"):
-            kwargs.setdefault("kafka_consumer_properties", {})["value.deserializer"] = (
+            kwargs.setdefault("extra_consumer_properties", {})["value.deserializer"] = (
                 _get_schema(avro_schema).deserializer()
             )
         super().__init__(**kwargs)

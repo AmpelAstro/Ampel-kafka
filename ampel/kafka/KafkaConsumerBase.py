@@ -30,7 +30,9 @@ class KafkaConsumerBase(AbsContextManager, AmpelUnit):
     #: extra configuration to pass to confluent_kafka.Consumer
     kafka_consumer_properties: dict[str, Any] = {}
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self, extra_consumer_properties: dict[str, Any] | None = None, **kwargs
+    ):
         super().__init__(**kwargs)
 
         group_name = self.group_name if self.group_name else str(uuid.uuid1())
@@ -54,6 +56,7 @@ class KafkaConsumerBase(AbsContextManager, AmpelUnit):
                 if self.instance_id_env_var and os.getenv(self.instance_id_env_var)
                 else {}
             )
+            | (extra_consumer_properties or {})
             | self.kafka_consumer_properties
         )
 
